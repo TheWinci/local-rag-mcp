@@ -80,9 +80,12 @@ The MCP server registers tools, but agents won't reach for them on their own unl
 
 This project has a local RAG index (local-rag-mcp). Use these MCP tools:
 
-- **`search`**: Before reading files to answer questions about architecture,
-  conventions, or setup, search the RAG index first. This finds relevant files
-  by meaning, not filename.
+- **`search`**: Discover which files are relevant to a topic. Returns file paths
+  with snippet previews — use this when you need to know *where* something is.
+- **`read_relevant`**: Get the actual content of relevant semantic chunks —
+  individual functions, classes, or markdown sections — ranked by relevance.
+  Use this instead of `search` + `Read` when you need the content itself. Two
+  chunks from the same file can both appear (no file deduplication).
 - **`project_map`**: When you need to understand how files relate to each other,
   generate a dependency graph. Use `focus` to zoom into a specific file's
   neighborhood. This is faster than reading import statements across many files.
@@ -123,7 +126,8 @@ These tools are available to any MCP client (Claude Code, etc.) once the server 
 
 | Tool | What it does |
 |---|---|
-| `search` | Semantic search over indexed files — returns ranked paths, scores, and snippets |
+| `search` | Semantic search over indexed files — returns ranked paths, scores, and 400-char snippets |
+| `read_relevant` | Chunk-level retrieval — returns top-N individual semantic chunks ranked by relevance, with entity names and full content. No file deduplication — two chunks from the same file can both appear |
 | `index_files` | Index files in a directory — skips unchanged files, prunes deleted ones |
 | `index_status` | Show file count, chunk count, last indexed time |
 | `remove_file` | Remove a specific file from the index |
@@ -139,7 +143,9 @@ These tools are available to any MCP client (Claude Code, etc.) once the server 
 ```bash
 bunx local-rag init [dir]                     # Create .rag/config.json with defaults
 bunx local-rag index [dir]                    # Index files
-bunx local-rag search <query> [--top N]       # Search by meaning
+bunx local-rag search <query> [--top N]       # Search by meaning (returns file paths + snippets)
+bunx local-rag read <query> [--top N]         # Chunk-level retrieval (returns full content + entity names)
+                   [--threshold T]
 bunx local-rag status [dir]                   # Show index stats
 bunx local-rag remove <file> [dir]            # Remove a file from the index
 bunx local-rag analytics [dir] [--days N]     # Show search usage analytics
@@ -456,7 +462,7 @@ flowchart TD
 
 4. **Extract imports/exports** — During AST chunking, import specifiers and exported symbols are captured. After all files are indexed, relative imports are resolved to actual files in the index (with extension probing for `.ts`/`.tsx`/`.js`/`.jsx`). This builds the dependency graph.
 
-5. **Hybrid search** — Queries run both vector similarity (semantic) and BM25 (keyword) searches in parallel, then blend results using `hybridWeight` (default 0.7 = 70% semantic, 30% keyword). Results are deduplicated by file and ranked by combined score.
+5. **Hybrid search** — Queries run both vector similarity (semantic) and BM25 (keyword) searches in parallel, then blend results using `hybridWeight` (default 0.7 = 70% semantic, 30% keyword). `search` deduplicates by file and returns the best-scoring file with a 400-char snippet. `read_relevant` skips deduplication and returns top-N individual chunks with full content and entity names (function/class names from AST parsing), so you get exactly the relevant code units without reading entire files.
 
 6. **Project map** — Generates a Mermaid dependency graph from the stored import/export relationships. Supports file-level and directory-level zoom, and focused subgraphs (BFS from a specific file). Entry points are auto-detected and highlighted.
 
