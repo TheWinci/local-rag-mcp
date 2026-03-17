@@ -249,9 +249,28 @@ Create `.rag/config.json` in your project (or run `local-rag init`):
   "include": ["**/*.md", "**/*.txt"],
   "exclude": ["node_modules/**", ".git/**", "dist/**", ".rag/**"],
   "chunkSize": 512,
-  "chunkOverlap": 50
+  "chunkOverlap": 50,
+  "hybridWeight": 0.7,
+  "searchTopK": 5,
+  "benchmarkTopK": 5,
+  "benchmarkMinRecall": 0.8,
+  "benchmarkMinMrr": 0.6
 }
 ```
+
+| Option | Default | Description |
+|---|---|---|
+| `include` | `["**/*.md", "**/*.txt"]` | Glob patterns for files to index |
+| `exclude` | `["node_modules/**", ...]` | Glob patterns to skip |
+| `chunkSize` | `512` | Max tokens per chunk |
+| `chunkOverlap` | `50` | Overlap tokens between chunks |
+| `hybridWeight` | `0.7` | Blend ratio: 1.0 = vector only, 0.0 = BM25 only |
+| `searchTopK` | `5` | Default number of search results |
+| `benchmarkTopK` | `5` | Default top-K for benchmark/eval runs |
+| `benchmarkMinRecall` | `0.8` | Minimum Recall@K to pass benchmark (CI) |
+| `benchmarkMinMrr` | `0.6` | Minimum MRR to pass benchmark (CI) |
+
+All options can be overridden by CLI flags (e.g. `--top 10`).
 
 ## How it works
 

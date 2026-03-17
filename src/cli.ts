@@ -86,9 +86,9 @@ async function main() {
       }
 
       const dir = resolve(getFlag("--dir") || ".");
-      const top = parseInt(getFlag("--top") || "5", 10);
       const db = new RagDB(dir);
       const config = await loadConfig(dir);
+      const top = parseInt(getFlag("--top") || String(config.searchTopK), 10);
 
       const results = await search(query, db, top, 0, config.hybridWeight);
 
@@ -197,9 +197,10 @@ async function main() {
       }
 
       const dir = resolve(getFlag("--dir") || ".");
-      const top = parseInt(getFlag("--top") || "5", 10);
       const outPath = getFlag("--out");
       const db = new RagDB(dir);
+      const config = await loadConfig(dir);
+      const top = parseInt(getFlag("--top") || String(config.benchmarkTopK), 10);
 
       const tasks = await loadEvalTasks(resolve(file));
       console.log(`Running A/B eval with ${tasks.length} tasks against ${dir}...\n`);
@@ -224,8 +225,9 @@ async function main() {
       }
 
       const dir = resolve(getFlag("--dir") || ".");
-      const top = parseInt(getFlag("--top") || "5", 10);
       const db = new RagDB(dir);
+      const config = await loadConfig(dir);
+      const top = parseInt(getFlag("--top") || String(config.benchmarkTopK), 10);
 
       const queries = await loadBenchmarkQueries(resolve(file));
       console.log(`Running ${queries.length} benchmark queries against ${dir}...\n`);
@@ -236,7 +238,7 @@ async function main() {
       db.close();
 
       // Exit with non-zero if below thresholds
-      if (summary.recallAtK < 0.8 || summary.mrr < 0.6) {
+      if (summary.recallAtK < config.benchmarkMinRecall || summary.mrr < config.benchmarkMinMrr) {
         process.exit(1);
       }
       break;

@@ -42,15 +42,14 @@ server.tool(
     top: z
       .number()
       .optional()
-      .default(5)
-      .describe("Number of results to return"),
+      .describe("Number of results to return (default: from config or 5)"),
   },
   async ({ query, directory, top }) => {
     const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
     const ragDb = getDB(projectDir);
     const config = await loadConfig(projectDir);
 
-    const results = await search(query, ragDb, top, 0, config.hybridWeight);
+    const results = await search(query, ragDb, top ?? config.searchTopK, 0, config.hybridWeight);
 
     if (results.length === 0) {
       return {
