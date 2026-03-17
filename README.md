@@ -65,12 +65,23 @@ Progress is logged to stderr:
 The MCP server registers tools, but the agent won't reach for them on its own unless you tell it to. Add this to your project's `CLAUDE.md`:
 
 ```markdown
-When answering questions about this project's architecture, conventions,
-or setup, use the `search` MCP tool first to find relevant docs before
-reading files directly.
+## Using local-rag tools
+
+This project has a local RAG index (local-rag-mcp). Use these MCP tools:
+
+- **`search`**: Before reading files to answer questions about architecture,
+  conventions, or setup, search the RAG index first. This finds relevant files
+  by meaning, not filename.
+- **`project_map`**: When you need to understand how files relate to each other,
+  generate a dependency graph. Use `focus` to zoom into a specific file's
+  neighborhood. This is faster than reading import statements across many files.
+- **`index_files`**: If you've created or modified files and want them searchable,
+  re-index the project directory.
+- **`search_analytics`**: Check what queries return no results or low-relevance
+  results — this reveals documentation gaps.
 ```
 
-Without this, the agent only uses the tools when you explicitly ask it to search. With it, the agent proactively searches the RAG index whenever it thinks local docs might help.
+Without this, the agent only uses the tools when you explicitly ask it to search. With it, the agent proactively searches the index and uses the project map for navigation.
 
 ### CLI usage
 
