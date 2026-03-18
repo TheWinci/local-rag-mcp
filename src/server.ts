@@ -547,10 +547,12 @@ server.tool(
 // Auto-index on startup + start file watcher
 const startupDir = process.env.RAG_PROJECT_DIR || process.cwd();
 
-if (resolve(startupDir) === homedir()) {
+const isHomeDirTrap = resolve(startupDir) === homedir();
+if (isHomeDirTrap) {
   process.stderr.write(
     `[local-rag] WARNING: project directory is your home folder (${startupDir}).\n` +
-    `[local-rag] This will index your entire home directory. Set RAG_PROJECT_DIR to your project path.\n`
+    `[local-rag] Skipping auto-index and file watcher. Set RAG_PROJECT_DIR to your project path.\n` +
+    `[local-rag] Example: "env": { "RAG_PROJECT_DIR": "/path/to/your/project" }\n`
   );
 }
 const startupDb = getDB(startupDir);
@@ -559,19 +561,21 @@ const startupConfig = await loadConfig(startupDir);
 let watcher: Watcher | null = null;
 let convWatcher: Watcher | null = null;
 
-// Index in background — don't block server startup
-indexDirectory(startupDir, startupDb, startupConfig, (msg) => {
-  process.stderr.write(`[local-rag] ${msg}\n`);
-}).then((result) => {
-  process.stderr.write(
-    `[local-rag] Startup index: ${result.indexed} indexed, ${result.skipped} skipped, ${result.pruned} pruned\n`
-  );
-
-  // Start watching after initial index completes
-  watcher = startWatcher(startupDir, startupDb, startupConfig, (msg) => {
+if (!isHomeDirTrap) {
+  // Index in background — don't block server startup
+  indexDirectory(startupDir, startupDb, startupConfig, (msg) => {
     process.stderr.write(`[local-rag] ${msg}\n`);
+  }).then((result) => {
+    process.stderr.write(
+      `[local-rag] Startup index: ${result.indexed} indexed, ${result.skipped} skipped, ${result.pruned} pruned\n`
+    );
+
+    // Start watching after initial index completes
+    watcher = startWatcher(startupDir, startupDb, startupConfig, (msg) => {
+      process.stderr.write(`[local-rag] ${msg}\n`);
+    });
   });
-});
+}
 
 // Start conversation tailing — find and tail the current session's JSONL
 const sessions = discoverSessions(startupDir);
