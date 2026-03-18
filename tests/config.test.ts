@@ -18,7 +18,14 @@ afterEach(async () => {
 describe("loadConfig", () => {
   test("returns defaults when no config.json exists", async () => {
     const config = await loadConfig(tempDir);
-    expect(config.include).toEqual(["**/*.md", "**/*.txt"]);
+    expect(config.include).toContain("**/*.md");
+    expect(config.include).toContain("**/*.yaml");
+    expect(config.include).toContain("**/Makefile");
+    expect(config.include).toContain("**/Dockerfile");
+    expect(config.include).toContain("**/Jenkinsfile");
+    expect(config.include).toContain("**/*.toml");
+    expect(config.include).toContain("**/*.sh");
+    expect(config.include).toContain("**/*.sql");
     expect(config.exclude).toContain("node_modules/**");
     expect(config.chunkSize).toBe(512);
     expect(config.chunkOverlap).toBe(50);

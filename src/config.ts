@@ -15,7 +15,28 @@ export interface RagConfig {
 }
 
 const DEFAULT_CONFIG: RagConfig = {
-  include: ["**/*.md", "**/*.txt"],
+  include: [
+    // Markdown & plain text
+    "**/*.md", "**/*.txt",
+    // Build / task runners (no extension or prefix-named)
+    "**/Makefile", "**/makefile", "**/GNUmakefile",
+    "**/Dockerfile", "**/Dockerfile.*",
+    "**/Jenkinsfile", "**/Jenkinsfile.*",
+    "**/Vagrantfile", "**/Gemfile", "**/Rakefile",
+    "**/Brewfile", "**/Procfile",
+    // Structured data & config
+    "**/*.yaml", "**/*.yml",
+    "**/*.json",
+    "**/*.toml",
+    "**/*.xml",
+    // Shell & scripting
+    "**/*.sh", "**/*.bash", "**/*.zsh",
+    // Infrastructure / schema languages
+    "**/*.tf",
+    "**/*.proto",
+    "**/*.graphql", "**/*.gql",
+    "**/*.sql",
+  ],
   exclude: ["node_modules/**", ".git/**", "dist/**", ".rag/**"],
   chunkSize: 512,
   chunkOverlap: 50,

@@ -11,9 +11,49 @@ export interface ParsedFile {
 
 const MARKDOWN_EXTENSIONS = new Set([".md", ".mdx", ".markdown"]);
 
+// Files with no real extension matched by exact basename.
+const EXACT_NAME_MAP = new Map<string, string>([
+  ["makefile", ".makefile"],
+  ["gnumakefile", ".makefile"],
+  ["vagrantfile", ".vagrantfile"],
+  ["gemfile", ".gemfile"],
+  ["rakefile", ".rakefile"],
+  ["brewfile", ".brewfile"],
+  ["procfile", ".procfile"],
+]);
+
+// Files whose basename starts with a known prefix (e.g. Dockerfile.dev,
+// Jenkinsfile.staging). Each entry is [lowerPrefix, virtualExtension].
+const PREFIX_NAME_MAP: [string, string][] = [
+  ["dockerfile", ".dockerfile"],
+  ["jenkinsfile", ".jenkinsfile"],
+];
+
+function resolveExtension(rawExt: string, basename: string): string {
+  if (rawExt) {
+    // Even with an extension, check prefixes: Dockerfile.dev should win.
+    for (const [prefix, virtualExt] of PREFIX_NAME_MAP) {
+      if (basename === prefix || basename.startsWith(prefix + ".")) {
+        return virtualExt;
+      }
+    }
+    return rawExt;
+  }
+  // No extension — check exact names first, then prefixes.
+  if (EXACT_NAME_MAP.has(basename)) return EXACT_NAME_MAP.get(basename)!;
+  for (const [prefix, virtualExt] of PREFIX_NAME_MAP) {
+    if (basename === prefix || basename.startsWith(prefix + ".")) {
+      return virtualExt;
+    }
+  }
+  return rawExt;
+}
+
 export async function parseFile(filePath: string): Promise<ParsedFile> {
   const raw = await readFile(filePath, "utf-8");
-  const ext = extname(filePath).toLowerCase();
+  const rawExt = extname(filePath).toLowerCase();
+  const basename = filePath.split("/").pop()?.toLowerCase() ?? "";
+  const ext = resolveExtension(rawExt, basename);
 
   if (MARKDOWN_EXTENSIONS.has(ext)) {
     const { data, content } = matter(raw);

@@ -386,7 +386,16 @@ Create `.rag/config.json` in your project (or run `local-rag init`):
 
 ```json
 {
-  "include": ["**/*.md", "**/*.txt"],
+  "include": [
+    "**/*.md", "**/*.txt",
+    "**/Makefile", "**/makefile", "**/GNUmakefile",
+    "**/Dockerfile", "**/Dockerfile.*",
+    "**/Jenkinsfile", "**/Jenkinsfile.*",
+    "**/Vagrantfile", "**/Gemfile", "**/Rakefile", "**/Brewfile", "**/Procfile",
+    "**/*.yaml", "**/*.yml", "**/*.json", "**/*.toml", "**/*.xml",
+    "**/*.sh", "**/*.bash", "**/*.zsh",
+    "**/*.tf", "**/*.proto", "**/*.graphql", "**/*.gql", "**/*.sql"
+  ],
   "exclude": ["node_modules/**", ".git/**", "dist/**", ".rag/**"],
   "chunkSize": 512,
   "chunkOverlap": 50,
@@ -400,7 +409,7 @@ Create `.rag/config.json` in your project (or run `local-rag init`):
 
 | Option | Default | Description |
 |---|---|---|
-| `include` | `["**/*.md", "**/*.txt"]` | Glob patterns for files to index |
+| `include` | see [Supported file types](#supported-file-types) | Glob patterns for files to index |
 | `exclude` | `["node_modules/**", ...]` | Glob patterns to skip |
 | `chunkSize` | `512` | Max tokens per chunk |
 | `chunkOverlap` | `50` | Overlap tokens between chunks |
@@ -411,6 +420,67 @@ Create `.rag/config.json` in your project (or run `local-rag init`):
 | `benchmarkMinMrr` | `0.6` | Minimum MRR to pass benchmark (CI) |
 
 All options can be overridden by CLI flags (e.g. `--top 10`).
+
+## Supported file types
+
+Files are detected by extension or by basename (for files with no extension or a suffix-variant like `Dockerfile.prod`). Each type gets a dedicated chunking strategy so chunks land on meaningful boundaries rather than arbitrary character counts.
+
+### AST-aware (tree-sitter)
+
+These use `code-chunk` to extract real function/class/interface/enum boundaries. Import and export symbols are also captured and stored for the project dependency graph.
+
+| Extensions | Notes |
+|---|---|
+| `.ts` `.tsx` `.js` `.jsx` | TypeScript & JavaScript |
+| `.py` | Python |
+| `.go` | Go |
+| `.rs` | Rust |
+| `.java` | Java |
+
+### Structured data & config
+
+| Extensions / filenames | Chunking strategy |
+|---|---|
+| `.yaml` `.yml` | Split on top-level keys. OpenAPI files: `paths:` is further split per endpoint (`  /users:`, `  /orders:`) so each route is its own chunk. |
+| `.json` | Parse and split per top-level key. OpenAPI files: each path under `paths` becomes its own chunk. Falls back to paragraph split for invalid JSON. |
+| `.toml` | Split on `[section]` and `[[array-of-tables]]` headers (e.g. each `[[package]]` in a Cargo workspace). |
+| `.xml` | Split on blank-line-separated blocks. |
+
+### Build, CI & task runners
+
+Detected by basename — exact match or prefix match (e.g. `Dockerfile.dev` and `Dockerfile.prod` are both treated as Dockerfiles).
+
+| Basename pattern | Chunking strategy |
+|---|---|
+| `Makefile` `makefile` `GNUmakefile` | Split on target definitions — each `target: deps` line and its recipe is one chunk. |
+| `Dockerfile` `Dockerfile.*` | Split on `FROM` instructions (stage boundaries in multi-stage builds). |
+| `Jenkinsfile` `Jenkinsfile.*` | Split on blank-line blocks (Groovy DSL). |
+| `Vagrantfile` `Gemfile` `Rakefile` `Brewfile` | Split on blank-line blocks (Ruby DSL). |
+| `Procfile` | Split on blank-line blocks. |
+
+### Shell & scripting
+
+| Extensions | Notes |
+|---|---|
+| `.sh` `.bash` `.zsh` `.fish` | Split on blank-line blocks (function and section boundaries). |
+
+### Infrastructure & schema languages
+
+| Extensions | Chunking strategy |
+|---|---|
+| `.tf` | Split on blank-line blocks (HCL `resource`, `module`, `variable` blocks). |
+| `.proto` | Split on blank-line blocks (message, service, enum definitions). |
+| `.graphql` `.gql` | Split on blank-line blocks (type, query, mutation, fragment definitions). |
+| `.sql` | Split on `;`-terminated statement boundaries. |
+
+### Markdown & plain text
+
+| Extensions | Chunking strategy |
+|---|---|
+| `.md` `.mdx` `.markdown` | Split on heading boundaries (`#` / `##` / `###`). Frontmatter fields (`name`, `description`, `type`, `tags`) are extracted and prepended to boost relevance. |
+| `.txt` | Split on paragraphs. |
+
+> Files not matching any of the above extensions still fall back to paragraph splitting, so they're searchable even without a dedicated strategy. You can add any glob pattern to `include` in `.rag/config.json`.
 
 ## How it works
 
@@ -456,7 +526,7 @@ flowchart TD
 
 1. **Parse & filter** — Walks your project, matches files against include/exclude globs. Markdown files get frontmatter extracted and weighted. Code files are detected by extension.
 
-2. **Chunk** — Splits content into searchable pieces. Code files (`.ts`, `.py`, `.go`, `.rs`, `.java`, etc.) use tree-sitter AST parsing via `code-chunk` — this respects function/class boundaries instead of cutting mid-statement. Markdown splits on headings. Other files split on paragraphs.
+2. **Chunk** — Splits content into searchable pieces using a strategy matched to each file type. AST-supported code files (`.ts`, `.py`, `.go`, `.rs`, `.java`, etc.) use tree-sitter via `code-chunk` — chunks respect function/class boundaries and never cut mid-statement. Markdown splits on headings. YAML and JSON split on top-level keys (OpenAPI files go deeper, splitting per path endpoint). TOML splits on `[section]` headers. Dockerfiles split on `FROM` stage boundaries. Makefiles split on target definitions. SQL splits on `;` statement boundaries. Shell, HCL, proto, GraphQL, and Ruby DSL files split on blank-line-separated blocks. See [Supported file types](#supported-file-types) for the full list.
 
 3. **Embed** — Each chunk is embedded into a 384-dimensional vector using all-MiniLM-L6-v2 (runs in-process via Transformers.js + ONNX, no API calls). Vectors are stored in sqlite-vec for fast similarity search.
 
