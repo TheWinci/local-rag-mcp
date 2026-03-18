@@ -51,8 +51,8 @@ async function fileHash(filePath: string): Promise<string> {
   return createHash("sha256").update(content).digest("hex");
 }
 
-function matchesAny(filePath: string, patterns: string[]): boolean {
-  return patterns.some((pat) => new Glob(pat).match(filePath));
+function matchesAny(filePath: string, globs: Glob[]): boolean {
+  return globs.some((g) => g.match(filePath));
 }
 
 async function collectFiles(
@@ -60,28 +60,32 @@ async function collectFiles(
   config: RagConfig,
   onWarning?: (msg: string) => void
 ): Promise<string[]> {
-  const matched: string[] = [];
+  const excludeGlobs = config.exclude.map((pat) => new Glob(pat));
 
-  for (const pattern of config.include) {
+  async function scanPattern(pattern: string): Promise<string[]> {
+    const files: string[] = [];
     const glob = new Glob(pattern);
     try {
       for await (const file of glob.scan({ cwd: directory, absolute: true })) {
         const rel = relative(directory, file);
-        if (!matchesAny(rel, config.exclude)) {
-          matched.push(file);
+        if (!matchesAny(rel, excludeGlobs)) {
+          files.push(file);
         }
       }
     } catch (err: any) {
       if (err.code === "EPERM" || err.code === "EACCES") {
         onWarning?.(`Skipping inaccessible path (${err.code}): ${err.path ?? pattern}`);
-        continue;
+      } else {
+        throw err;
       }
-      throw err;
     }
+    return files;
   }
 
+  const results = await Promise.all(config.include.map(scanPattern));
+
   // Deduplicate (a file might match multiple include patterns)
-  return [...new Set(matched)];
+  return [...new Set(results.flat())];
 }
 
 /**
