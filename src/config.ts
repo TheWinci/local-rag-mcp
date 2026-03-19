@@ -9,6 +9,7 @@ export interface RagConfig {
   chunkOverlap: number;
   hybridWeight: number; // 0-1: 1 = vector only, 0 = BM25 only, 0.7 = default blend
   searchTopK: number; // default number of results for search
+  indexBatchSize?: number; // chunks to embed per batch before yielding to event loop (default: 50)
   benchmarkTopK: number; // default top-K for benchmark runs
   benchmarkMinRecall: number; // minimum Recall@K to pass (0-1)
   benchmarkMinMrr: number; // minimum MRR to pass (0-1)
@@ -45,6 +46,7 @@ const DEFAULT_CONFIG: RagConfig = {
   chunkOverlap: 50,
   hybridWeight: 0.7,
   searchTopK: 5,
+  indexBatchSize: 50,
   benchmarkTopK: 5,
   benchmarkMinRecall: 0.8,
   benchmarkMinMrr: 0.6,

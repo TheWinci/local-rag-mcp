@@ -53,13 +53,22 @@ describe("CLI", () => {
     expect(stdout).toContain("analytics");
   });
 
-  test("init creates .rag/config.json", async () => {
+  test("init creates .rag/config.json and CLAUDE.md", async () => {
     const { stdout, exitCode } = await runCLI("init", tempDir);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("Created config");
+    expect(stdout).toContain(".rag/config.json");
+    expect(stdout).toContain("CLAUDE.md");
 
     const { existsSync } = await import("fs");
     expect(existsSync(join(tempDir, ".rag", "config.json"))).toBe(true);
+    expect(existsSync(join(tempDir, "CLAUDE.md"))).toBe(true);
+  });
+
+  test("init is idempotent", async () => {
+    await runCLI("init", tempDir);
+    const { stdout, exitCode } = await runCLI("init", tempDir);
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe("Already set up — nothing to do.");
   });
 
   test("index reports indexed counts", async () => {

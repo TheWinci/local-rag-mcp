@@ -2,7 +2,8 @@
 
 import { resolve } from "path";
 import { RagDB } from "./db";
-import { loadConfig, writeDefaultConfig } from "./config";
+import { loadConfig } from "./config";
+import { runSetup } from "./setup";
 import { indexDirectory } from "./indexer";
 import { search, searchChunks } from "./search";
 import { loadBenchmarkQueries, runBenchmark, formatBenchmarkReport } from "./benchmark";
@@ -72,8 +73,12 @@ async function main() {
   switch (command) {
     case "init": {
       const dir = getDir(1);
-      const path = await writeDefaultConfig(dir);
-      console.log(`Created config: ${path}`);
+      const { actions } = await runSetup(dir);
+      if (actions.length === 0) {
+        console.log("Already set up — nothing to do.");
+      } else {
+        for (const action of actions) console.log(action);
+      }
       break;
     }
 

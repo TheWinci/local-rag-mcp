@@ -3,7 +3,7 @@ import { createHash } from "crypto";
 import { readFile } from "fs/promises";
 import { Glob } from "bun";
 import { parseFile } from "./parse";
-import { embed } from "./embed";
+import { embedBatch } from "./embed";
 import { chunkText, KNOWN_EXTENSIONS, type ChunkImport, type ChunkExport } from "./chunker";
 import { RagDB } from "./db";
 import { type RagConfig } from "./config";
@@ -123,17 +123,22 @@ export async function indexFile(
     );
 
     const embeddedChunks: { snippet: string; embedding: Float32Array; entityName?: string | null; chunkType?: string | null; startLine?: number | null; endLine?: number | null }[] = [];
-    for (const chunk of chunks) {
-      const embedding = await embed(chunk.text);
-      const primaryExport = chunk.exports?.[0];
-      embeddedChunks.push({
-        snippet: chunk.text,
-        embedding,
-        entityName: primaryExport?.name ?? null,
-        chunkType: primaryExport?.type ?? null,
-        startLine: chunk.startLine ?? null,
-        endLine: chunk.endLine ?? null,
-      });
+    for (let i = 0; i < chunks.length; i += config.indexBatchSize ?? 50) {
+      const batch = chunks.slice(i, i + (config.indexBatchSize ?? 50));
+      const embeddings = await embedBatch(batch.map(c => c.text));
+      for (let j = 0; j < batch.length; j++) {
+        const chunk = batch[j];
+        const primaryExport = chunk.exports?.[0];
+        embeddedChunks.push({
+          snippet: chunk.text,
+          embedding: embeddings[j],
+          entityName: primaryExport?.name ?? null,
+          chunkType: primaryExport?.type ?? null,
+          startLine: chunk.startLine ?? null,
+          endLine: chunk.endLine ?? null,
+        });
+      }
+      await Bun.sleep(0);
     }
 
     db.upsertFile(filePath, hash, embeddedChunks);
@@ -197,17 +202,22 @@ export async function indexDirectory(
       );
 
       const embeddedChunks: { snippet: string; embedding: Float32Array; entityName?: string | null; chunkType?: string | null; startLine?: number | null; endLine?: number | null }[] = [];
-      for (const chunk of chunks) {
-        const embedding = await embed(chunk.text);
-        const primaryExport = chunk.exports?.[0];
-        embeddedChunks.push({
-          snippet: chunk.text,
-          embedding,
-          entityName: primaryExport?.name ?? null,
-          chunkType: primaryExport?.type ?? null,
-          startLine: chunk.startLine ?? null,
-          endLine: chunk.endLine ?? null,
-        });
+      for (let i = 0; i < chunks.length; i += config.indexBatchSize ?? 50) {
+        const batch = chunks.slice(i, i + (config.indexBatchSize ?? 50));
+        const embeddings = await embedBatch(batch.map(c => c.text));
+        for (let j = 0; j < batch.length; j++) {
+          const chunk = batch[j];
+          const primaryExport = chunk.exports?.[0];
+          embeddedChunks.push({
+            snippet: chunk.text,
+            embedding: embeddings[j],
+            entityName: primaryExport?.name ?? null,
+            chunkType: primaryExport?.type ?? null,
+            startLine: chunk.startLine ?? null,
+            endLine: chunk.endLine ?? null,
+          });
+        }
+        await Bun.sleep(0);
       }
 
       db.upsertFile(filePath, hash, embeddedChunks);
@@ -221,6 +231,7 @@ export async function indexDirectory(
 
       result.indexed++;
       onProgress?.(`Indexed: ${relative(directory, filePath)} (${chunks.length} chunks)`);
+      await Bun.sleep(0);
     } catch (err) {
       const msg = `Error indexing ${filePath}: ${err instanceof Error ? err.message : err}`;
       result.errors.push(msg);

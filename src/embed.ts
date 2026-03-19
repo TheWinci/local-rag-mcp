@@ -45,4 +45,16 @@ export async function embed(text: string): Promise<Float32Array> {
   return new Float32Array(output.data as Float64Array);
 }
 
+export async function embedBatch(texts: string[]): Promise<Float32Array[]> {
+  if (texts.length === 0) return [];
+  const model = await getEmbedder();
+  const output = await model(texts, { pooling: "mean", normalize: true });
+  const flat = new Float32Array(output.data as Float64Array);
+  const result: Float32Array[] = [];
+  for (let i = 0; i < texts.length; i++) {
+    result.push(flat.slice(i * EMBEDDING_DIM, (i + 1) * EMBEDDING_DIM));
+  }
+  return result;
+}
+
 export { EMBEDDING_DIM };

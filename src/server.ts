@@ -14,6 +14,7 @@ import { discoverSessions } from "./conversation";
 import { indexConversation, startConversationTail } from "./conversation-index";
 import { resolve } from "path";
 import { homedir } from "os";
+import { runSetup } from "./setup";
 
 const server = new McpServer({
   name: "local-rag",
@@ -985,6 +986,18 @@ function cleanup() {
 process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
 process.on("SIGHUP", cleanup);
+
+// init subcommand: bunx local-rag-mcp@latest init [dir]
+if (process.argv[2] === "init") {
+  const dir = process.argv[3] ? resolve(process.argv[3]) : process.cwd();
+  const { actions } = await runSetup(dir);
+  if (actions.length === 0) {
+    console.log("Already set up — nothing to do.");
+  } else {
+    for (const action of actions) console.log(action);
+  }
+  process.exit(0);
+}
 
 // Start server
 const transport = new StdioServerTransport();
