@@ -1,10 +1,9 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { RagDB } from "../db";
-import { loadConfig } from "../config";
 import { indexDirectory } from "../indexing/indexer";
+import { type GetDB, resolveProject } from "./index";
 
-export function registerIndexTools(server: McpServer, getDB: (dir: string) => RagDB) {
+export function registerIndexTools(server: McpServer, getDB: GetDB) {
   server.tool(
     "index_files",
     "Index files in a directory for semantic search. Skips unchanged files and prunes deleted ones.",
@@ -23,13 +22,8 @@ export function registerIndexTools(server: McpServer, getDB: (dir: string) => Ra
         ),
     },
     async ({ directory, patterns }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
-      const config = await loadConfig(projectDir);
-
-      if (patterns) {
-        config.include = patterns;
-      }
+      const { projectDir, db: ragDb, config: baseConfig } = await resolveProject(directory, getDB);
+      const config = patterns ? { ...baseConfig, include: patterns } : baseConfig;
 
       const result = await indexDirectory(projectDir, ragDb, config);
 
@@ -54,8 +48,7 @@ export function registerIndexTools(server: McpServer, getDB: (dir: string) => Ra
         .describe("Project directory. Defaults to RAG_PROJECT_DIR env or cwd"),
     },
     async ({ directory }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { db: ragDb } = await resolveProject(directory, getDB);
       const status = ragDb.getStatus();
 
       return {
@@ -80,8 +73,7 @@ export function registerIndexTools(server: McpServer, getDB: (dir: string) => Ra
         .describe("Project directory. Defaults to RAG_PROJECT_DIR env or cwd"),
     },
     async ({ path, directory }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { db: ragDb } = await resolveProject(directory, getDB);
       const removed = ragDb.removeFile(path);
 
       return {

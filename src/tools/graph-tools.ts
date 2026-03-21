@@ -1,10 +1,10 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { resolve, relative } from "path";
-import { RagDB } from "../db";
 import { generateProjectMap } from "../graph/resolver";
+import { type GetDB, resolveProject } from "./index";
 
-export function registerGraphTools(server: McpServer, getDB: (dir: string) => RagDB) {
+export function registerGraphTools(server: McpServer, getDB: GetDB) {
   server.tool(
     "project_map",
     "Generate a structured dependency map of the project. Shows files, their exports, depends_on (imports), and depended_on_by (importers). Entry points are listed separately.",
@@ -27,8 +27,7 @@ export function registerGraphTools(server: McpServer, getDB: (dir: string) => Ra
         .describe("Max nodes in graph (default: 50, auto-switches to directory view if exceeded)"),
     },
     async ({ directory, focus, zoom, maxNodes }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { projectDir, db: ragDb } = await resolveProject(directory, getDB);
 
       const map = generateProjectMap(ragDb, {
         projectDir,
@@ -59,8 +58,7 @@ export function registerGraphTools(server: McpServer, getDB: (dir: string) => Ra
       top: z.number().optional().describe("Max results to return (default: 30)"),
     },
     async ({ symbol, exact, directory, top }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { projectDir, db: ragDb } = await resolveProject(directory, getDB);
 
       const results = ragDb.findUsages(symbol, exact ?? true, top ?? 30);
 
@@ -108,8 +106,7 @@ export function registerGraphTools(server: McpServer, getDB: (dir: string) => Ra
         .describe("Project directory. Defaults to RAG_PROJECT_DIR env or cwd"),
     },
     async ({ file, directory }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { projectDir, db: ragDb } = await resolveProject(directory, getDB);
 
       const absPath = resolve(projectDir, file);
       const fileRecord = ragDb.getFileByPath(absPath);
@@ -142,8 +139,7 @@ export function registerGraphTools(server: McpServer, getDB: (dir: string) => Ra
         .describe("Project directory. Defaults to RAG_PROJECT_DIR env or cwd"),
     },
     async ({ file, directory }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { projectDir, db: ragDb } = await resolveProject(directory, getDB);
 
       const absPath = resolve(projectDir, file);
       const fileRecord = ragDb.getFileByPath(absPath);

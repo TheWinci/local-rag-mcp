@@ -174,6 +174,30 @@ describe("indexConversation", () => {
     expect(results[0].snippet).toContain("Docker");
   });
 
+  test("duplicate insertTurn does not create duplicate chunks", async () => {
+    const path = await writeJSONL("test.jsonl", [
+      userMsg("What is the architecture?", "u1"),
+      assistantMsg("The app uses a layered architecture with controllers, services, and repositories.", "a1", "u1"),
+    ]);
+
+    // Index the same file twice from offset 0 — the second run should detect duplicates
+    const result1 = await indexConversation(path, "dup-session", db);
+    expect(result1.turnsIndexed).toBe(1);
+
+    const result2 = await indexConversation(path, "dup-session", db, 0, 0);
+    expect(result2.turnsIndexed).toBe(0); // duplicate — should not re-index
+
+    // Verify only one turn exists
+    expect(db.getTurnCount("dup-session")).toBe(1);
+
+    // Verify no duplicate chunks via vector search
+    const queryEmb = await embed("architecture");
+    const results = db.searchConversation(queryEmb, 10, "dup-session");
+    // All results should reference the same turnId
+    const turnIds = new Set(results.map((r) => r.turnId));
+    expect(turnIds.size).toBeLessThanOrEqual(1);
+  });
+
   test("tracks session metadata", async () => {
     const path = await writeJSONL("test.jsonl", [
       userMsg("Hello", "u1"),

@@ -1,10 +1,10 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { RagDB } from "../db";
 import { embed } from "../embeddings/embed";
 import { discoverSessions } from "../conversation/parser";
+import { type GetDB, resolveProject } from "./index";
 
-export function registerCheckpointTools(server: McpServer, getDB: (dir: string) => RagDB) {
+export function registerCheckpointTools(server: McpServer, getDB: GetDB) {
   server.tool(
     "create_checkpoint",
     "Create a named checkpoint marking an important moment. Call this liberally: after completing any feature or task, after adding or modifying tools, after key technical decisions, before and after large refactors, when hitting a blocker, or when changing direction. Checkpoints are the only way future sessions can know what was done and why — if in doubt, create one.",
@@ -30,8 +30,7 @@ export function registerCheckpointTools(server: McpServer, getDB: (dir: string) 
         .describe("Project directory. Defaults to RAG_PROJECT_DIR env or cwd"),
     },
     async ({ type, title, summary, filesInvolved, tags, directory }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { projectDir, db: ragDb } = await resolveProject(directory, getDB);
 
       // Get current session's latest turn index
       const sessions = discoverSessions(projectDir);
@@ -82,8 +81,7 @@ export function registerCheckpointTools(server: McpServer, getDB: (dir: string) 
         .describe("Project directory. Defaults to RAG_PROJECT_DIR env or cwd"),
     },
     async ({ sessionId, type, limit, directory }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { projectDir, db: ragDb } = await resolveProject(directory, getDB);
 
       const checkpoints = ragDb.listCheckpoints(sessionId, type, limit);
 
@@ -123,8 +121,7 @@ export function registerCheckpointTools(server: McpServer, getDB: (dir: string) 
         .describe("Project directory. Defaults to RAG_PROJECT_DIR env or cwd"),
     },
     async ({ query, type, limit, directory }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { projectDir, db: ragDb } = await resolveProject(directory, getDB);
 
       const queryEmb = await embed(query);
       const results = ragDb.searchCheckpoints(queryEmb, limit, type);

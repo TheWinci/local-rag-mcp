@@ -1,10 +1,9 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { RagDB } from "../db";
-import { loadConfig } from "../config";
 import { embed } from "../embeddings/embed";
+import { type GetDB, resolveProject } from "./index";
 
-export function registerConversationTools(server: McpServer, getDB: (dir: string) => RagDB) {
+export function registerConversationTools(server: McpServer, getDB: GetDB) {
   server.tool(
     "search_conversation",
     "Search through conversation history. Finds past decisions, discussions, and tool outputs from current or previous sessions.",
@@ -25,9 +24,7 @@ export function registerConversationTools(server: McpServer, getDB: (dir: string
         .describe("Number of results to return (default: 5)"),
     },
     async ({ query, directory, sessionId, top }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
-      const config = await loadConfig(projectDir);
+      const { db: ragDb, config } = await resolveProject(directory, getDB);
 
       // Hybrid search: vector + BM25
       const queryEmb = await embed(query);
@@ -40,23 +37,24 @@ export function registerConversationTools(server: McpServer, getDB: (dir: string
         // FTS can fail on special characters
       }
 
-      // Merge and deduplicate by turnId
-      const merged = new Map<number, (typeof vecResults)[0]>();
-      const hybridWeight = config.hybridWeight;
+      // Merge and deduplicate by turnId using hybrid scoring
+      const { hybridWeight } = config;
+      const scoreMap = new Map<number, { item: (typeof vecResults)[0]; vecScore: number; txtScore: number }>();
 
       for (const r of vecResults) {
-        merged.set(r.turnId, { ...r, score: r.score * hybridWeight });
+        scoreMap.set(r.turnId, { item: r, vecScore: r.score, txtScore: 0 });
       }
       for (const r of bm25Results) {
-        const existing = merged.get(r.turnId);
+        const existing = scoreMap.get(r.turnId);
         if (existing) {
-          existing.score += r.score * (1 - hybridWeight);
+          existing.txtScore = r.score;
         } else {
-          merged.set(r.turnId, { ...r, score: r.score * (1 - hybridWeight) });
+          scoreMap.set(r.turnId, { item: r, vecScore: 0, txtScore: r.score });
         }
       }
 
-      const results = [...merged.values()]
+      const results = [...scoreMap.values()]
+        .map((e) => ({ ...e.item, score: hybridWeight * e.vecScore + (1 - hybridWeight) * e.txtScore }))
         .sort((a, b) => b.score - a.score)
         .slice(0, top);
 

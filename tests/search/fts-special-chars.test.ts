@@ -77,6 +77,15 @@ export function booleanLogic(a: boolean, b: boolean) {
       const chunkResults = await searchChunks(query, db, 5, 0, 0.7);
       expect(Array.isArray(chunkResults)).toBe(true);
     }
+
+    // Positive-match: queries for known content should return the indexed file
+    const nodeResults = await search("node.js runtime", db, 5, 0, 0.7);
+    expect(nodeResults.length).toBeGreaterThan(0);
+    expect(nodeResults[0].path).toContain("special.ts");
+
+    const sqlResults = await searchChunks("SELECT FROM users", db, 5, 0, 0.7);
+    expect(sqlResults.length).toBeGreaterThan(0);
+    expect(sqlResults[0].path).toContain("special.ts");
   });
 
   test("text search on conversation does not throw with special chars", async () => {

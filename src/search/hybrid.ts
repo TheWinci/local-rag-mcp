@@ -27,7 +27,7 @@ const DEFAULT_HYBRID_WEIGHT = 0.7;
  * Each result must have `score`, `path`, and `chunkIndex` at minimum.
  * Extra fields from the vector results are preserved on the merged output.
  */
-function mergeHybridScores<T extends { score: number; path: string; chunkIndex: number }>(
+export function mergeHybridScores<T extends { score: number; path: string; chunkIndex: number }>(
   vectorResults: T[],
   textResults: T[],
   hybridWeight: number
@@ -138,8 +138,8 @@ export async function searchChunks(
   let textResults: ChunkSearchResult[] = [];
   try {
     textResults = db.textSearchChunks(query, topK * 3);
-  } catch {
-    // FTS query may fail on special characters
+  } catch (err) {
+    log.debug(`FTS chunk query failed, falling back to vector-only: ${err instanceof Error ? err.message : err}`, "search");
   }
 
   const results = mergeHybridScores(vectorResults, textResults, hybridWeight)

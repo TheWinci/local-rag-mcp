@@ -123,6 +123,10 @@ export class RagDB {
       CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
         INSERT INTO fts_chunks(fts_chunks, rowid, snippet) VALUES ('delete', old.id, old.snippet);
       END;
+      CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
+        INSERT INTO fts_chunks(fts_chunks, rowid, snippet) VALUES ('delete', old.id, old.snippet);
+        INSERT INTO fts_chunks(rowid, snippet) VALUES (new.id, new.snippet);
+      END;
 
       CREATE TABLE IF NOT EXISTS file_imports (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -194,6 +198,10 @@ export class RagDB {
       END;
       CREATE TRIGGER IF NOT EXISTS conv_chunks_ad AFTER DELETE ON conversation_chunks BEGIN
         INSERT INTO fts_conversation(fts_conversation, rowid, snippet) VALUES ('delete', old.id, old.snippet);
+      END;
+      CREATE TRIGGER IF NOT EXISTS conv_chunks_au AFTER UPDATE ON conversation_chunks BEGIN
+        INSERT INTO fts_conversation(fts_conversation, rowid, snippet) VALUES ('delete', old.id, old.snippet);
+        INSERT INTO fts_conversation(rowid, snippet) VALUES (new.id, new.snippet);
       END;
 
       CREATE INDEX IF NOT EXISTS idx_conv_turns_session ON conversation_turns(session_id);

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { RagDB } from "../db";
+import { type GetDB, resolveProject } from "./index";
 
-export function registerAnalyticsTools(server: McpServer, getDB: (dir: string) => RagDB) {
+export function registerAnalyticsTools(server: McpServer, getDB: GetDB) {
   server.tool(
     "search_analytics",
     "Show search usage analytics: query counts, zero-result queries, low-relevance queries, top searched terms.",
@@ -18,8 +18,7 @@ export function registerAnalyticsTools(server: McpServer, getDB: (dir: string) =
         .describe("Number of days to look back (default: 30)"),
     },
     async ({ directory, days }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { db: ragDb } = await resolveProject(directory, getDB);
       const analytics = ragDb.getAnalytics(days);
 
       const lines: string[] = [

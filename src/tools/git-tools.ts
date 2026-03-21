@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { RagDB } from "../db";
 import { resolve } from "path";
+import { type GetDB, resolveProject } from "./index";
 
 async function runGit(args: string[], cwd: string): Promise<string | null> {
   try {
@@ -18,7 +18,7 @@ async function findGitRoot(dir: string): Promise<string | null> {
   return runGit(["rev-parse", "--show-toplevel"], dir);
 }
 
-export function registerGitTools(server: McpServer, getDB: (dir: string) => RagDB) {
+export function registerGitTools(server: McpServer, getDB: GetDB) {
   server.tool(
     "git_context",
     "Show git context for the working tree: uncommitted changes annotated with index status, recent commits, and changed files. Use this at the start of a session to understand what has already been modified before searching or editing.",
@@ -41,8 +41,7 @@ export function registerGitTools(server: McpServer, getDB: (dir: string) => RagD
         .describe("Project directory. Defaults to RAG_PROJECT_DIR env or cwd"),
     },
     async ({ since, include_diff, files_only, directory }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { projectDir, db: ragDb } = await resolveProject(directory, getDB);
 
       const gitRoot = await findGitRoot(resolve(projectDir));
       if (!gitRoot) {

@@ -195,7 +195,7 @@ function assignLineNumbers(chunks: Chunk[], fullText: string): void {
     const idx = fullText.indexOf(chunk.text, cursor);
     if (idx >= 0) {
       chunk.startLine = offsetToLine(idx);
-      chunk.endLine = offsetToLine(idx + chunk.text.length);
+      chunk.endLine = offsetToLine(idx + Math.max(chunk.text.length - 1, 0));
       cursor = idx + chunk.text.length;
     }
   }

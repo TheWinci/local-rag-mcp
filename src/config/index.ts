@@ -57,6 +57,11 @@ const DEFAULT_CONFIG: RagConfig = {
   benchmarkMinMrr: 0.6,
 };
 
+/**
+ * Load config from .rag/config.json, merged with defaults.
+ * Note: array fields (include, exclude) from user config *replace* the defaults
+ * entirely — they are not merged. This lets users fully control which files are indexed.
+ */
 export async function loadConfig(projectDir: string): Promise<RagConfig> {
   const configPath = join(projectDir, ".rag", "config.json");
 

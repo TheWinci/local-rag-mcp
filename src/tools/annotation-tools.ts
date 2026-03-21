@@ -1,9 +1,10 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { RagDB, type AnnotationRow } from "../db";
+import { type AnnotationRow } from "../db";
 import { embed } from "../embeddings/embed";
+import { type GetDB, resolveProject } from "./index";
 
-export function registerAnnotationTools(server: McpServer, getDB: (dir: string) => RagDB) {
+export function registerAnnotationTools(server: McpServer, getDB: GetDB) {
   server.tool(
     "annotate",
     "Attach a persistent note to a file or specific symbol. Notes survive sessions and surface inline in read_relevant results. Use for: known issues, caveats, architectural decisions tied to specific code, or 'don't change this until X lands'. Calling again with the same path+symbol updates the existing note.",
@@ -24,8 +25,7 @@ export function registerAnnotationTools(server: McpServer, getDB: (dir: string) 
         .describe("Project directory. Defaults to RAG_PROJECT_DIR env or cwd"),
     },
     async ({ path, note, symbol, author, directory }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { db: ragDb } = await resolveProject(directory, getDB);
 
       const embText = symbol ? `${symbol}: ${note}` : note;
       const embedding = await embed(embText);
@@ -56,8 +56,7 @@ export function registerAnnotationTools(server: McpServer, getDB: (dir: string) 
         .describe("Project directory. Defaults to RAG_PROJECT_DIR env or cwd"),
     },
     async ({ path, query, directory }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { db: ragDb } = await resolveProject(directory, getDB);
 
       let results: AnnotationRow[];
       if (query) {

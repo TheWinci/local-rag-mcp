@@ -1,10 +1,10 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { RagDB, type AnnotationRow } from "../db";
-import { loadConfig } from "../config";
+import { type AnnotationRow } from "../db";
 import { search, searchChunks } from "../search/hybrid";
+import { type GetDB, resolveProject } from "./index";
 
-export function registerSearchTools(server: McpServer, getDB: (dir: string) => RagDB) {
+export function registerSearchTools(server: McpServer, getDB: GetDB) {
   server.tool(
     "search",
     "Semantic search over indexed files. Returns ranked file paths with relevance scores and snippets.",
@@ -22,9 +22,7 @@ export function registerSearchTools(server: McpServer, getDB: (dir: string) => R
         .describe("Number of results to return (default: from config or 5)"),
     },
     async ({ query, directory, top }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
-      const config = await loadConfig(projectDir);
+      const { db: ragDb, config } = await resolveProject(directory, getDB);
 
       const results = await search(query, ragDb, top ?? config.searchTopK, 0, config.hybridWeight);
 
@@ -73,9 +71,7 @@ export function registerSearchTools(server: McpServer, getDB: (dir: string) => R
         .describe("Min relevance score to include (default: 0.3)"),
     },
     async ({ query, directory, top, threshold }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
-      const config = await loadConfig(projectDir);
+      const { db: ragDb, config } = await resolveProject(directory, getDB);
 
       const results = await searchChunks(
         query,
@@ -144,8 +140,7 @@ export function registerSearchTools(server: McpServer, getDB: (dir: string) => R
       top: z.number().optional().describe("Max results (default: 20)"),
     },
     async ({ symbol, exact, type, directory, top }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
+      const { db: ragDb } = await resolveProject(directory, getDB);
 
       const results = ragDb.searchSymbols(symbol, exact ?? false, type, top ?? 20);
 
@@ -185,9 +180,7 @@ export function registerSearchTools(server: McpServer, getDB: (dir: string) => R
         .describe("Min relevance score (default: 0.3)"),
     },
     async ({ content, directory, top, threshold }) => {
-      const projectDir = directory || process.env.RAG_PROJECT_DIR || process.cwd();
-      const ragDb = getDB(projectDir);
-      const config = await loadConfig(projectDir);
+      const { db: ragDb, config } = await resolveProject(directory, getDB);
 
       const topN = top ?? 3;
       const chunks = await searchChunks(

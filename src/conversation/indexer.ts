@@ -67,8 +67,8 @@ async function indexTurn(turn: ParsedTurn, db: RagDB): Promise<boolean> {
     embeddedChunks.push({ snippet: chunk.text, embedding });
   }
 
-  // Store in DB
-  db.insertTurn(
+  // Store in DB — returns 0 if this turn was already indexed (duplicate)
+  const turnId = db.insertTurn(
     turn.sessionId,
     turn.turnIndex,
     turn.timestamp,
@@ -81,7 +81,7 @@ async function indexTurn(turn: ParsedTurn, db: RagDB): Promise<boolean> {
     embeddedChunks
   );
 
-  return true;
+  return turnId !== 0;
 }
 
 /**

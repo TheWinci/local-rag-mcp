@@ -12,13 +12,7 @@ const INDEX_FILES = RESOLVE_EXTENSIONS.map((ext) => `/index${ext}`);
  */
 export function resolveImports(db: RagDB, projectDir: string): number {
   const unresolved = db.getUnresolvedImports();
-  const allFiles = db.getAllFilePaths();
-
-  // Build lookup: absolute path → file ID
-  const pathToId = new Map<string, number>();
-  for (const f of allFiles) {
-    pathToId.set(f.path, f.id);
-  }
+  const pathToId = buildPathToIdMap(db);
 
   let resolvedCount = 0;
 
@@ -43,19 +37,26 @@ export function resolveImports(db: RagDB, projectDir: string): number {
 
 /**
  * Resolve imports for a single file (used by watcher after re-indexing).
+ * Accepts an optional prebuilt pathToId map to avoid repeated full-table scans
+ * when resolving multiple files in sequence.
  */
-export function resolveImportsForFile(db: RagDB, fileId: number, projectDir: string): void {
-  const allFiles = db.getAllFilePaths();
-  const pathToId = new Map<string, number>();
-  for (const f of allFiles) {
-    pathToId.set(f.path, f.id);
+export function resolveImportsForFile(
+  db: RagDB,
+  fileId: number,
+  projectDir: string,
+  pathToId?: Map<string, number>
+): void {
+  if (!pathToId) {
+    pathToId = buildPathToIdMap(db);
   }
 
   const imports = db.getImportsForFile(fileId);
-  const file = allFiles.find((f) => f.id === fileId);
-  if (!file) return;
+  const filePath = pathToId.size > 0
+    ? [...pathToId.entries()].find(([, id]) => id === fileId)?.[0]
+    : undefined;
+  if (!filePath) return;
 
-  const importerDir = dirname(file.path);
+  const importerDir = dirname(filePath);
 
   for (const imp of imports) {
     if (imp.resolvedFileId !== null) continue;
@@ -67,6 +68,16 @@ export function resolveImportsForFile(db: RagDB, fileId: number, projectDir: str
       db.resolveImport(imp.id, resolved);
     }
   }
+}
+
+/** Build a path → fileId lookup from all indexed files. */
+export function buildPathToIdMap(db: RagDB): Map<string, number> {
+  const allFiles = db.getAllFilePaths();
+  const map = new Map<string, number>();
+  for (const f of allFiles) {
+    map.set(f.path, f.id);
+  }
+  return map;
 }
 
 function tryResolvePath(basePath: string, pathToId: Map<string, number>): number | null {
