@@ -72,7 +72,7 @@ export class RagDB {
           ? `RAG_DB_DIR path "${ragDir}"`
           : `project directory "${projectDir}"`;
         throw new Error(
-          `local-rag-mcp: cannot write to ${where} (${err.code}).\n` +
+          `local-rag: cannot write to ${where} (${err.code}).\n` +
           `Set RAG_DB_DIR to a writable directory in your MCP server config:\n` +
           `  "env": { "RAG_DB_DIR": "/tmp/my-project-rag", "RAG_PROJECT_DIR": "..." }`
         );

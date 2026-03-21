@@ -8,7 +8,7 @@ import { homedir, cpus } from "node:os";
 import { rmSync } from "node:fs";
 
 // Use a stable cache directory so models survive bunx temp dir cleanup
-const CACHE_DIR = join(homedir(), ".cache", "local-rag-mcp", "models");
+const CACHE_DIR = join(homedir(), ".cache", "local-rag", "models");
 env.cacheDir = CACHE_DIR;
 
 const MODEL_ID = "Xenova/all-MiniLM-L6-v2";

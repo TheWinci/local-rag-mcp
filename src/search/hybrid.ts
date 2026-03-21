@@ -1,5 +1,6 @@
 import { embed } from "../embeddings/embed";
 import { RagDB, type SearchResult, type ChunkSearchResult } from "../db";
+import { rerank } from "./reranker";
 import { log } from "../utils/log";
 
 export interface DedupedResult {
@@ -60,7 +61,8 @@ export async function search(
   db: RagDB,
   topK: number = 5,
   threshold: number = 0,
-  hybridWeight: number = DEFAULT_HYBRID_WEIGHT
+  hybridWeight: number = DEFAULT_HYBRID_WEIGHT,
+  enableReranking: boolean = false
 ): Promise<DedupedResult[]> {
   const start = performance.now();
   const queryEmbedding = await embed(query);
@@ -101,10 +103,25 @@ export async function search(
     }
   }
 
-  // Sort by score descending, take topK files
-  const results = Array.from(byFile.values())
+  // Sort by score descending, take candidates for reranking
+  let results = Array.from(byFile.values())
     .sort((a, b) => b.score - a.score)
-    .slice(0, topK);
+    .slice(0, enableReranking ? topK * 2 : topK);
+
+  // Cross-encoder reranking: re-score top candidates for precision
+  if (enableReranking && results.length > 0) {
+    try {
+      const passages = results.map((r) => r.snippets[0] ?? "");
+      const rerankScores = await rerank(query, passages);
+      results = results
+        .map((r, i) => ({ ...r, score: rerankScores[i] }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK);
+    } catch (err) {
+      log.warn(`Reranking failed, using hybrid scores: ${err instanceof Error ? err.message : err}`, "search");
+      results = results.slice(0, topK);
+    }
+  }
 
   // Log query for analytics
   const durationMs = Math.round(performance.now() - start);
@@ -128,7 +145,8 @@ export async function searchChunks(
   db: RagDB,
   topK: number = 8,
   threshold: number = 0.3,
-  hybridWeight: number = DEFAULT_HYBRID_WEIGHT
+  hybridWeight: number = DEFAULT_HYBRID_WEIGHT,
+  enableReranking: boolean = false
 ): Promise<ChunkResult[]> {
   const start = performance.now();
   const queryEmbedding = await embed(query);
@@ -142,10 +160,25 @@ export async function searchChunks(
     log.debug(`FTS chunk query failed, falling back to vector-only: ${err instanceof Error ? err.message : err}`, "search");
   }
 
-  const results = mergeHybridScores(vectorResults, textResults, hybridWeight)
+  let results = mergeHybridScores(vectorResults, textResults, hybridWeight)
     .filter((r) => r.score >= threshold)
     .sort((a, b) => b.score - a.score)
-    .slice(0, topK);
+    .slice(0, enableReranking ? topK * 2 : topK);
+
+  // Cross-encoder reranking: re-score top candidates for precision
+  if (enableReranking && results.length > 0) {
+    try {
+      const passages = results.map((r) => r.content);
+      const rerankScores = await rerank(query, passages);
+      results = results
+        .map((r, i) => ({ ...r, score: rerankScores[i] }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK);
+    } catch (err) {
+      log.warn(`Reranking failed, using hybrid scores: ${err instanceof Error ? err.message : err}`, "search");
+      results = results.slice(0, topK);
+    }
+  }
 
   // Log query for analytics
   const durationMs = Math.round(performance.now() - start);

@@ -1,4 +1,4 @@
-# local-rag-mcp
+# local-rag
 
 Semantic search for your codebase and conversation history, zero config, with built-in gap analysis.
 
@@ -6,13 +6,15 @@ Indexes any files — markdown, code, configs, docs — into a per-project vecto
 
 No API keys. No cloud. No Docker. Just `bunx`.
 
-[![npm](https://img.shields.io/npm/v/local-rag-mcp)](https://www.npmjs.com/package/local-rag-mcp)
-[![license](https://img.shields.io/npm/l/local-rag-mcp)](LICENSE)
+[![npm](https://img.shields.io/npm/v/local-rag)](https://www.npmjs.com/package/local-rag)
+[![license](https://img.shields.io/npm/l/local-rag)](LICENSE)
 
 ## Contents
 
 - [Why](#why)
 - [Quick start](#quick-start)
+  - [Claude Code plugin](#claude-code-plugin-recommended)
+  - [MCP server (any editor)](#mcp-server-any-editor)
 - [MCP tools](#mcp-tools)
 - [CLI](#cli)
 - [Analytics](#analytics)
@@ -33,7 +35,11 @@ No API keys. No cloud. No Docker. Just `bunx`.
 
 ## Quick start
 
-### 1. Install SQLite (macOS)
+### Claude Code plugin (recommended)
+
+The fastest way to get started with Claude Code. The plugin bundles the MCP server, auto-trigger skills, and lifecycle hooks — no manual config needed.
+
+#### 1. Install SQLite (macOS)
 
 Apple's bundled SQLite doesn't support extensions. Install the Homebrew version first:
 
@@ -41,27 +47,41 @@ Apple's bundled SQLite doesn't support extensions. Install the Homebrew version 
 brew install sqlite
 ```
 
-### 2. Verify it starts and index your project
+#### 2. Install the plugin
 
-Run the server directly to confirm it works and watch the indexing output:
+From the official marketplace (once approved):
 
 ```bash
-bunx local-rag-mcp serve
+/plugin install local-rag@claude-plugins-official
 ```
 
-You should see something like:
+Or install directly from GitHub:
 
+```bash
+# Clone and point Claude Code at it
+git clone https://github.com/TheWinci/local-rag-mcp.git
+claude --plugin-dir ./local-rag
 ```
-[local-rag] Startup index: 12 indexed, 0 skipped, 0 pruned
-[local-rag] Watching /path/to/project for changes
-[local-rag] Indexing conversation: a1b2c3d4...
+
+That's it. The plugin:
+- Starts the MCP server automatically
+- Indexes your project on startup and watches for changes
+- Auto-reindexes files when you edit them (via `PostToolUse` hook)
+- Makes the agent use RAG tools proactively (via built-in skill)
+
+No `CLAUDE.md` instructions needed — the plugin's skill tells the agent when and how to use each tool.
+
+#### 3. Try the demo
+
+See it in action against your own codebase:
+
+```bash
+bunx local-rag demo
 ```
 
-Press `Ctrl+C` when done — this was just a sanity check. The server will run automatically inside your editor once configured.
+#### 4. Create a config (optional)
 
-### 3. Create a config
-
-Create `.rag/config.json` in your project root. This is the minimal config to get started — it indexes source code and docs while skipping build artifacts:
+Create `.rag/config.json` in your project root to customize which files are indexed:
 
 ```json
 {
@@ -72,9 +92,32 @@ Create `.rag/config.json` in your project root. This is the minimal config to ge
 
 See the [Configuration](#configuration) section for all options. Add `.rag/` to your `.gitignore`.
 
-### 4. Add to your editor
+### MCP server (any editor)
 
-Works with any [MCP](https://modelcontextprotocol.io/)-compatible client. Add this server config to your editor's MCP config file:
+Works with any [MCP](https://modelcontextprotocol.io/)-compatible client — Claude Code, Cursor, Windsurf, VS Code Copilot, and more.
+
+#### 1. Install SQLite (macOS)
+
+```bash
+brew install sqlite
+```
+
+#### 2. Verify it starts
+
+```bash
+bunx local-rag serve
+```
+
+You should see:
+
+```
+[local-rag] Startup index: 12 indexed, 0 skipped, 0 pruned
+[local-rag] Watching /path/to/project for changes
+```
+
+Press `Ctrl+C` — the server will run inside your editor once configured.
+
+#### 3. Add to your editor
 
 | Editor | Config file | Sets cwd to project? |
 |---|---|---|
@@ -90,7 +133,7 @@ Editors that set cwd to the project automatically (Claude Code, VS Code) work wi
   "mcpServers": {
     "local-rag": {
       "command": "bunx",
-      "args": ["local-rag-mcp", "serve"]
+      "args": ["local-rag", "serve"]
     }
   }
 }
@@ -103,7 +146,7 @@ Editors that set cwd to the project automatically (Claude Code, VS Code) work wi
   "mcpServers": {
     "local-rag": {
       "command": "bunx",
-      "args": ["local-rag-mcp", "serve"],
+      "args": ["local-rag", "serve"],
       "env": {
         "RAG_PROJECT_DIR": "/path/to/your/project"
       }
@@ -123,18 +166,16 @@ Editors that set cwd to the project automatically (Claude Code, VS Code) work wi
 }
 ```
 
-### Auto-indexing
+#### 4. Make the agent use it automatically
 
-The MCP server (`local-rag-mcp serve`) automatically indexes your project on startup and watches for file changes during the session. It also tails the active conversation transcript in real time and indexes past sessions on startup. You don't need to manually run `index` — just connect and search. Progress is logged to stderr.
-
-### Make the agent use it automatically
+> **Plugin users**: skip this — the plugin's built-in skill handles this for you.
 
 The MCP server registers tools, but agents won't reach for them on their own unless you tell them to. Add instructions to your editor's rules file (`CLAUDE.md`, `.cursorrules`, `.windsurfrules`, or `.github/copilot-instructions.md`):
 
 ```markdown
 ## Using local-rag tools
 
-This project has a local RAG index (local-rag-mcp). Use these MCP tools:
+This project has a local RAG index (local-rag). Use these MCP tools:
 
 - **`search`**: Discover which files are relevant to a topic. Returns file paths
   with snippet previews — use this when you need to know *where* something is.
@@ -178,7 +219,11 @@ This project has a local RAG index (local-rag-mcp). Use these MCP tools:
   point — returns the most semantically appropriate file and anchor.
 ```
 
-Without this, the agent only uses the tools when you explicitly ask. With it, the agent proactively searches the index and uses the project map for navigation.
+### Auto-indexing
+
+The MCP server automatically indexes your project on startup and watches for file changes during the session. It also tails the active conversation transcript in real time and indexes past sessions on startup. You don't need to manually run `index` — just connect and search.
+
+> **Plugin users**: Files are also re-indexed automatically whenever you edit them, via the `PostToolUse` hook.
 
 ## MCP tools
 
@@ -206,22 +251,23 @@ These tools are available to any MCP client (Claude Code, etc.) once the server 
 
 ## CLI
 
-`local-rag-mcp` is a CLI-first tool. The MCP server runs as the `serve` subcommand.
+`local-rag` is a CLI-first tool. The MCP server runs as the `serve` subcommand.
 
 ```bash
-local-rag-mcp serve              # Start MCP server (stdio transport)
-local-rag-mcp init [dir]         # Set up .rag/config.json, CLAUDE.md, .gitignore
-local-rag-mcp index [dir]        # Index files in a directory
-local-rag-mcp search <query>     # Semantic search
-local-rag-mcp read <query>       # Chunk-level retrieval (like read_relevant)
-local-rag-mcp status [dir]       # Show index stats
-local-rag-mcp remove <path>      # Remove a file from the index
-local-rag-mcp analytics [dir]    # Usage analytics with trend comparison
-local-rag-mcp map [dir]          # Dependency graph (Mermaid output)
-local-rag-mcp benchmark [dir]    # Run search quality benchmark
-local-rag-mcp eval [dir]         # A/B eval harness
-local-rag-mcp conversation       # Conversation subcommands (search, sessions, index)
-local-rag-mcp checkpoint         # Checkpoint subcommands (create, list, search)
+local-rag serve              # Start MCP server (stdio transport)
+local-rag init [dir]         # Set up .rag/config.json, CLAUDE.md, .gitignore
+local-rag index [dir]        # Index files in a directory
+local-rag search <query>     # Semantic search
+local-rag read <query>       # Chunk-level retrieval (like read_relevant)
+local-rag status [dir]       # Show index stats
+local-rag remove <path>      # Remove a file from the index
+local-rag analytics [dir]    # Usage analytics with trend comparison
+local-rag map [dir]          # Dependency graph (Mermaid output)
+local-rag benchmark [dir]    # Run search quality benchmark
+local-rag eval [dir]         # A/B eval harness
+local-rag conversation       # Conversation subcommands (search, sessions, index)
+local-rag checkpoint         # Checkpoint subcommands (create, list, search)
+local-rag demo [dir]         # Interactive feature demo
 ```
 
 ## Analytics
@@ -330,6 +376,7 @@ Create `.rag/config.json` in your project. The defaults index all [supported fil
 | `chunkSize` | `512` | Max tokens per chunk |
 | `chunkOverlap` | `50` | Overlap tokens between chunks |
 | `hybridWeight` | `0.7` | Blend ratio: 1.0 = vector only, 0.0 = BM25 only |
+| `enableReranking` | `true` | Cross-encoder reranking for higher precision (adds ~80MB model on first query) |
 | `searchTopK` | `5` | Default number of search results |
 
 ## Supported file types
@@ -413,9 +460,10 @@ flowchart TD
   E --> F
   F --> G{"Agent query"}
   G -->|"semantic question"| H["Hybrid search\nvector + BM25"]
+  H --> H2["Cross-encoder\nreranker"]
   G -->|"navigation"| I["Project map\nMermaid graph"]
   G -->|"file changed"| J["Watcher\nre-index + re-resolve"]
-  H --> K["Ranked results\nwith snippets"]
+  H2 --> K["Ranked results\nwith snippets"]
   I --> L["Dependency graph\nfile or directory level"]
   J --> F
   K --> M["Query log"]
@@ -451,7 +499,7 @@ flowchart TD
 
 4. **Extract imports/exports** — During AST chunking, import specifiers and exported symbols are captured. After all files are indexed, relative imports are resolved to actual files in the index (with extension probing for `.ts`/`.tsx`/`.js`/`.jsx`). This builds the dependency graph.
 
-5. **Hybrid search** — Queries run both vector similarity (semantic) and BM25 (keyword) searches in parallel, then blend results using `hybridWeight` (default 0.7 = 70% semantic, 30% keyword). `search` deduplicates by file and returns the best-scoring file with a 400-char snippet. `read_relevant` skips deduplication and returns top-N individual chunks with full content, entity names (function/class names from AST parsing), and **exact line ranges** (`path:start-end`) — so you can navigate directly to an edit location without reading the full file.
+5. **Hybrid search + reranking** — Queries run both vector similarity (semantic) and BM25 (keyword) searches in parallel, then blend results using `hybridWeight` (default 0.7 = 70% semantic, 30% keyword). When `enableReranking` is true (default), the top candidates are re-scored by a cross-encoder model (ms-marco-MiniLM-L-6-v2) for higher precision — the cross-encoder sees the full (query, passage) pair and can catch nuances that embedding similarity misses. `search` deduplicates by file and returns the best-scoring file with a 400-char snippet. `read_relevant` skips deduplication and returns top-N individual chunks with full content, entity names (function/class names from AST parsing), and **exact line ranges** (`path:start-end`) — so you can navigate directly to an edit location without reading the full file.
 
 5a. **Usage search** — `find_usages` locates every call site of a symbol by querying the FTS index, excluding the file that defines it, and resolving per-line matches using the stored chunk line ranges. Useful before any rename or API change to understand the blast radius.
 
@@ -501,9 +549,11 @@ README.md
 |---|---|
 | Runtime | Bun (built-in SQLite, fast TS) |
 | Embeddings | Transformers.js + ONNX (in-process, no daemon) |
-| Model | all-MiniLM-L6-v2 (~23MB, 384 dimensions) |
+| Embedding model | all-MiniLM-L6-v2 (~23MB, 384 dimensions) |
+| Reranker | ms-marco-MiniLM-L-6-v2 cross-encoder (~80MB, downloaded on first query) |
 | Vector store | sqlite-vec (single `.db` file) |
 | MCP | @modelcontextprotocol/sdk (stdio transport) |
+| Plugin | Claude Code plugin with skills + lifecycle hooks |
 
 ## Per-project storage
 

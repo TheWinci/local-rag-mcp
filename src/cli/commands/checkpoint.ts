@@ -13,7 +13,7 @@ export async function checkpointCommand(args: string[], getFlag: (flag: string) 
     const title = args[3];
     const summary = args[4];
     if (!type || !title || !summary) {
-      console.error("Usage: local-rag-mcp checkpoint create <type> <title> <summary> [--dir D] [--files f1,f2] [--tags t1,t2]");
+      console.error("Usage: local-rag checkpoint create <type> <title> <summary> [--dir D] [--files f1,f2] [--tags t1,t2]");
       process.exit(1);
     }
 
@@ -55,7 +55,7 @@ export async function checkpointCommand(args: string[], getFlag: (flag: string) 
   } else if (subCommand === "search") {
     const query = args[2];
     if (!query) {
-      console.error("Usage: local-rag-mcp checkpoint search <query> [--dir D] [--type T] [--top N]");
+      console.error("Usage: local-rag checkpoint search <query> [--dir D] [--type T] [--top N]");
       process.exit(1);
     }
 
@@ -77,7 +77,7 @@ export async function checkpointCommand(args: string[], getFlag: (flag: string) 
       }
     }
   } else {
-    console.error("Usage: local-rag-mcp checkpoint <create|list|search>");
+    console.error("Usage: local-rag checkpoint <create|list|search>");
     process.exit(1);
   }
 

@@ -10,42 +10,44 @@ import { evalCommand } from "./commands/eval";
 import { conversationCommand } from "./commands/conversation";
 import { checkpointCommand } from "./commands/checkpoint";
 import { serveCommand } from "./commands/serve";
+import { demoCommand } from "./commands/demo";
 
 const args = process.argv.slice(2);
 const command = args[0];
 
 function usage() {
-  console.log(`local-rag-mcp — Local RAG for semantic file search
+  console.log(`local-rag — Local RAG for semantic file search
 
 Usage:
-  local-rag-mcp serve                      Start MCP server (stdio)
-  local-rag-mcp init [dir]                 Create default .rag/config.json
-  local-rag-mcp index [dir] [--patterns ...] Index files in directory
-  local-rag-mcp search <query> [--top N]   Search indexed files
-  local-rag-mcp read <query> [--top N]     Read relevant chunks (full content)
+  local-rag serve                      Start MCP server (stdio)
+  local-rag init [dir]                 Create default .rag/config.json
+  local-rag index [dir] [--patterns ...] Index files in directory
+  local-rag search <query> [--top N]   Search indexed files
+  local-rag read <query> [--top N]     Read relevant chunks (full content)
               [--threshold T] [--dir D]
-  local-rag-mcp status [dir]               Show index stats
-  local-rag-mcp remove <file> [dir]        Remove file from index
-  local-rag-mcp analytics [dir] [--days N] Show search usage analytics
-  local-rag-mcp benchmark <file> [--dir D] Run search quality benchmark
+  local-rag status [dir]               Show index stats
+  local-rag remove <file> [dir]        Remove file from index
+  local-rag analytics [dir] [--days N] Show search usage analytics
+  local-rag benchmark <file> [--dir D] Run search quality benchmark
                        [--top N]
-  local-rag-mcp eval <file> [--dir D]      Run A/B eval (with/without RAG)
+  local-rag eval <file> [--dir D]      Run A/B eval (with/without RAG)
                   [--top N] [--out F]
-  local-rag-mcp map [dir] [--focus F]      Generate project dependency graph
+  local-rag map [dir] [--focus F]      Generate project dependency graph
                 [--zoom file|directory]     (Mermaid format)
                 [--max N]
-  local-rag-mcp conversation search <query> Search conversation history
+  local-rag conversation search <query> Search conversation history
                 [--dir D] [--top N]
-  local-rag-mcp conversation sessions      List indexed sessions
+  local-rag conversation sessions      List indexed sessions
                 [--dir D]
-  local-rag-mcp conversation index [--dir D] Index all sessions for a project
-  local-rag-mcp checkpoint create <type>   Create a checkpoint
+  local-rag conversation index [--dir D] Index all sessions for a project
+  local-rag checkpoint create <type>   Create a checkpoint
                 <title> <summary>
                 [--dir D] [--files f1,f2] [--tags t1,t2]
-  local-rag-mcp checkpoint list [--dir D]  List checkpoints
+  local-rag checkpoint list [--dir D]  List checkpoints
                 [--type T] [--top N]
-  local-rag-mcp checkpoint search <query>  Search checkpoints
+  local-rag checkpoint search <query>  Search checkpoints
                 [--dir D] [--type T] [--top N]
+  local-rag demo [dir]                 Run interactive feature demo
 
 Options:
   dir       Project directory (default: current directory)
@@ -103,6 +105,9 @@ export async function main() {
       break;
     case "checkpoint":
       await checkpointCommand(args, getFlag);
+      break;
+    case "demo":
+      await demoCommand(args);
       break;
     default:
       console.error(`Unknown command: ${command}`);

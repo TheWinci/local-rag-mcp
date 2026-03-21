@@ -13,7 +13,7 @@ export async function conversationCommand(args: string[], getFlag: (flag: string
   if (subCommand === "search") {
     const query = args[2];
     if (!query) {
-      console.error("Usage: local-rag-mcp conversation search <query> [--dir D] [--top N]");
+      console.error("Usage: local-rag conversation search <query> [--dir D] [--top N]");
       process.exit(1);
     }
 
@@ -94,7 +94,7 @@ export async function conversationCommand(args: string[], getFlag: (flag: string
       console.log(`Done: ${totalTurns} turns indexed across ${sessions.length} sessions`);
     }
   } else {
-    console.error("Usage: local-rag-mcp conversation <search|sessions|index>");
+    console.error("Usage: local-rag conversation <search|sessions|index>");
     process.exit(1);
   }
 

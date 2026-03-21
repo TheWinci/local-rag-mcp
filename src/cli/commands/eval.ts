@@ -6,7 +6,7 @@ import { loadEvalTasks, runEval, formatEvalReport, saveEvalTraces } from "../../
 export async function evalCommand(args: string[], getFlag: (flag: string) => string | undefined) {
   const file = args[1];
   if (!file) {
-    console.error("Usage: local-rag-mcp eval <file> [--dir D] [--top N] [--out F]");
+    console.error("Usage: local-rag eval <file> [--dir D] [--top N] [--out F]");
     process.exit(1);
   }
 

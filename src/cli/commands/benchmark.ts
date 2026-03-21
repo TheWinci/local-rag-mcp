@@ -6,7 +6,7 @@ import { loadBenchmarkQueries, runBenchmark, formatBenchmarkReport } from "../..
 export async function benchmarkCommand(args: string[], getFlag: (flag: string) => string | undefined) {
   const file = args[1];
   if (!file) {
-    console.error("Usage: local-rag-mcp benchmark <file> [--dir D] [--top N]");
+    console.error("Usage: local-rag benchmark <file> [--dir D] [--top N]");
     process.exit(1);
   }
 

@@ -4,11 +4,11 @@ import { join, resolve } from "path";
 import { createInterface } from "readline";
 import { writeDefaultConfig } from "../config";
 
-const MARKER = "<!-- local-rag-mcp -->";
+const MARKER = "<!-- local-rag -->";
 
 const INSTRUCTIONS_BLOCK = `## Using local-rag tools
 
-This project has a local RAG index (local-rag-mcp). Use these MCP tools:
+This project has a local RAG index (local-rag). Use these MCP tools:
 
 - **\`search\`**: Discover which files are relevant to a topic. Returns file paths
   with snippet previews — use this when you need to know *where* something is.
@@ -53,7 +53,7 @@ This project has a local RAG index (local-rag-mcp). Use these MCP tools:
 
 const MDC_BLOCK = `${MARKER}
 ---
-description: local-rag-mcp tool usage instructions
+description: local-rag tool usage instructions
 alwaysApply: true
 ---
 
@@ -118,14 +118,14 @@ export async function ensureAgentInstructions(projectDir: string): Promise<strin
 
   // Cursor — only if .cursor/ exists
   const cursorAction = await injectMdc(
-    join(projectDir, ".cursor", "rules", "local-rag-mcp.mdc"),
+    join(projectDir, ".cursor", "rules", "local-rag.mdc"),
     join(projectDir, ".cursor")
   );
   if (cursorAction) actions.push(cursorAction);
 
   // Windsurf — only if .windsurf/ exists
   const windsurfAction = await injectMdc(
-    join(projectDir, ".windsurf", "rules", "local-rag-mcp.mdc"),
+    join(projectDir, ".windsurf", "rules", "local-rag.mdc"),
     join(projectDir, ".windsurf")
   );
   if (windsurfAction) actions.push(windsurfAction);
@@ -145,9 +145,9 @@ export async function ensureAgentInstructions(projectDir: string): Promise<strin
 export function mcpConfigSnippet(projectDir: string): string {
   const abs = resolve(projectDir);
   return JSON.stringify({
-    "local-rag-mcp": {
+    "local-rag": {
       command: "bunx",
-      args: ["local-rag-mcp@latest"],
+      args: ["local-rag@latest"],
       env: { RAG_PROJECT_DIR: abs },
     },
   }, null, 2);

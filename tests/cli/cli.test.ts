@@ -63,7 +63,7 @@ describe("CLI", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain(".rag/config.json");
     expect(stdout).toContain("CLAUDE.md");
-    expect(stdout).toContain("local-rag-mcp");
+    expect(stdout).toContain("local-rag");
     expect(stdout).toContain("RAG_PROJECT_DIR");
 
     const { existsSync } = await import("fs");

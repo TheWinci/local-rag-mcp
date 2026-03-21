@@ -3,5 +3,4 @@ node_modules/
 *.db
 PLAN.md
 CLAUDE.md
-.mcp.json
 completed-plan-phases.md

@@ -1,5 +1,5 @@
 {
-  "name": "local-rag-mcp",
+  "name": "local-rag",
   "version": "0.1.24",
   "description": "Semantic search for your codebase — local-first RAG MCP server with hybrid search, AST-aware chunking, and usage analytics",
   "type": "module",
@@ -21,10 +21,14 @@
     "bun"
   ],
   "bin": {
-    "local-rag-mcp": "src/main.ts"
+    "local-rag": "src/main.ts"
   },
   "files": [
     "src/",
+    ".claude-plugin/",
+    ".mcp.json",
+    "skills/",
+    "hooks/",
     "README.md",
     "LICENSE"
   ],

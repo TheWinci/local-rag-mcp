@@ -6,7 +6,7 @@ import { search, searchChunks } from "../../search/hybrid";
 export async function searchCommand(args: string[], getFlag: (flag: string) => string | undefined) {
   const query = args[1];
   if (!query) {
-    console.error("Usage: local-rag-mcp search <query> [--top N]");
+    console.error("Usage: local-rag search <query> [--top N]");
     process.exit(1);
   }
 
@@ -15,7 +15,7 @@ export async function searchCommand(args: string[], getFlag: (flag: string) => s
   const config = await loadConfig(dir);
   const top = parseInt(getFlag("--top") || String(config.searchTopK), 10);
 
-  const results = await search(query, db, top, 0, config.hybridWeight);
+  const results = await search(query, db, top, 0, config.hybridWeight, config.enableReranking);
 
   if (results.length === 0) {
     console.log("No results found. Has the directory been indexed?");
@@ -33,7 +33,7 @@ export async function searchCommand(args: string[], getFlag: (flag: string) => s
 export async function readCommand(args: string[], getFlag: (flag: string) => string | undefined) {
   const query = args[1];
   if (!query) {
-    console.error("Usage: local-rag-mcp read <query> [--top N] [--threshold T] [--dir D]");
+    console.error("Usage: local-rag read <query> [--top N] [--threshold T] [--dir D]");
     process.exit(1);
   }
 
@@ -43,7 +43,7 @@ export async function readCommand(args: string[], getFlag: (flag: string) => str
   const top = parseInt(getFlag("--top") || "8", 10);
   const threshold = parseFloat(getFlag("--threshold") || "0.3");
 
-  const results = await searchChunks(query, db, top, threshold, config.hybridWeight);
+  const results = await searchChunks(query, db, top, threshold, config.hybridWeight, config.enableReranking);
 
   if (results.length === 0) {
     console.log("No relevant chunks found. Has the directory been indexed?");

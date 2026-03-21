@@ -25,7 +25,7 @@ export function registerSearchTools(server: McpServer, getDB: GetDB) {
     async ({ query, directory, top }) => {
       const { db: ragDb, config } = await resolveProject(directory, getDB);
 
-      const results = await search(query, ragDb, top ?? config.searchTopK, 0, config.hybridWeight);
+      const results = await search(query, ragDb, top ?? config.searchTopK, 0, config.hybridWeight, config.enableReranking);
 
       if (results.length === 0) {
         return {
@@ -79,7 +79,8 @@ export function registerSearchTools(server: McpServer, getDB: GetDB) {
         ragDb,
         top ?? 8,
         threshold ?? 0.3,
-        config.hybridWeight
+        config.hybridWeight,
+        config.enableReranking
       );
 
       if (results.length === 0) {
@@ -198,7 +199,8 @@ export function registerSearchTools(server: McpServer, getDB: GetDB) {
         ragDb,
         topN * 3,
         threshold ?? 0.3,
-        config.hybridWeight
+        config.hybridWeight,
+        config.enableReranking
       );
 
       if (chunks.length === 0) {
