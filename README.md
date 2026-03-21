@@ -59,7 +59,7 @@ Or install directly from GitHub:
 
 ```bash
 # Clone and point Claude Code at it
-git clone https://github.com/TheWinci/local-rag-mcp.git
+git clone https://github.com/TheWinci/local-rag.git
 claude --plugin-dir ./local-rag
 ```
 
