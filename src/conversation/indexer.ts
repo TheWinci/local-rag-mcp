@@ -1,7 +1,7 @@
 import { watch, statSync } from "fs";
 import { readJSONL, parseTurns, buildTurnText, type ParsedTurn } from "./parser";
 import { chunkText } from "../indexing/chunker";
-import { embed } from "../embeddings/embed";
+import { embedBatch } from "../embeddings/embed";
 import { type RagDB } from "../db";
 import { type Watcher } from "../indexing/watcher";
 
@@ -60,12 +60,12 @@ async function indexTurn(turn: ParsedTurn, db: RagDB): Promise<boolean> {
   // Chunk the turn text (use .md extension for paragraph-style splitting)
   const textChunks = await chunkText(text, ".md", 512, 50);
 
-  // Embed each chunk
-  const embeddedChunks: { snippet: string; embedding: Float32Array }[] = [];
-  for (const chunk of textChunks) {
-    const embedding = await embed(chunk.text);
-    embeddedChunks.push({ snippet: chunk.text, embedding });
-  }
+  // Embed all chunks in one batch
+  const embeddings = await embedBatch(textChunks.map(c => c.text));
+  const embeddedChunks = textChunks.map((chunk, i) => ({
+    snippet: chunk.text,
+    embedding: embeddings[i],
+  }));
 
   // Store in DB — returns 0 if this turn was already indexed (duplicate)
   const turnId = db.insertTurn(

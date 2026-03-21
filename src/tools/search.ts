@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { relative } from "path";
 import { type AnnotationRow } from "../db";
 import { search, searchChunks } from "../search/hybrid";
 import { type GetDB, resolveProject } from "./index";
@@ -71,7 +72,7 @@ export function registerSearchTools(server: McpServer, getDB: GetDB) {
         .describe("Min relevance score to include (default: 0.3)"),
     },
     async ({ query, directory, top, threshold }) => {
-      const { db: ragDb, config } = await resolveProject(directory, getDB);
+      const { projectDir, db: ragDb, config } = await resolveProject(directory, getDB);
 
       const results = await searchChunks(
         query,
@@ -92,6 +93,14 @@ export function registerSearchTools(server: McpServer, getDB: GetDB) {
         };
       }
 
+      // Batch-fetch annotations for all unique paths (avoids N+1 queries)
+      const uniqueRelPaths = [...new Set(results.map((r) => relative(projectDir, r.path)))];
+      const annotationsByPath = new Map<string, AnnotationRow[]>();
+      for (const relPath of uniqueRelPaths) {
+        const anns = ragDb.getAnnotations(relPath);
+        if (anns.length > 0) annotationsByPath.set(relPath, anns);
+      }
+
       const text = results
         .map((r) => {
           const lineRange = r.startLine != null && r.endLine != null ? `:${r.startLine}-${r.endLine}` : "";
@@ -99,7 +108,8 @@ export function registerSearchTools(server: McpServer, getDB: GetDB) {
           const header = `[${r.score.toFixed(2)}] ${r.path}${lineRange}${entity}`;
 
           // Surface annotations for this file (and matching entity if applicable)
-          const fileAnnotations = ragDb.getAnnotations(r.path);
+          const relPath = relative(projectDir, r.path);
+          const fileAnnotations = annotationsByPath.get(relPath) ?? [];
           const relevant = fileAnnotations.filter(
             (a) => a.symbolName == null || a.symbolName === r.entityName
           );

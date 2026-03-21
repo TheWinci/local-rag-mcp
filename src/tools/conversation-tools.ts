@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { embed } from "../embeddings/embed";
+import { log } from "../utils/log";
 import { type GetDB, resolveProject } from "./index";
 
 export function registerConversationTools(server: McpServer, getDB: GetDB) {
@@ -33,8 +34,8 @@ export function registerConversationTools(server: McpServer, getDB: GetDB) {
       let bm25Results: typeof vecResults = [];
       try {
         bm25Results = ragDb.textSearchConversation(query, top, sessionId);
-      } catch {
-        // FTS can fail on special characters
+      } catch (err) {
+        log.debug(`Conversation FTS query failed, falling back to vector-only: ${err instanceof Error ? err.message : err}`, "conversation");
       }
 
       // Merge and deduplicate by turnId using hybrid scoring

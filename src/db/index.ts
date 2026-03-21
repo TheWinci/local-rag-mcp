@@ -82,6 +82,7 @@ export class RagDB {
 
     this.db = new Database(join(ragDir, "index.db"));
     this.db.exec("PRAGMA journal_mode=WAL");
+    this.db.exec("PRAGMA busy_timeout = 5000");
     sqliteVec.load(this.db);
     this.initSchema();
   }
@@ -236,17 +237,6 @@ export class RagDB {
         duration_ms INTEGER NOT NULL,
         created_at TEXT NOT NULL
       );
-    `);
-
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS symbol_usages (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        file_id     INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-        symbol_name TEXT NOT NULL,
-        line        INTEGER NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_usages_symbol ON symbol_usages(symbol_name COLLATE NOCASE);
-      CREATE INDEX IF NOT EXISTS idx_usages_file ON symbol_usages(file_id);
     `);
 
     this.db.exec(`

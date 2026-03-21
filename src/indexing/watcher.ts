@@ -5,7 +5,7 @@ import { Glob } from "bun";
 import { indexFile } from "./indexer";
 import { type RagConfig } from "../config";
 import { type RagDB } from "../db";
-import { resolveImportsForFile, buildPathToIdMap } from "../graph/resolver";
+import { resolveImportsForFile, buildPathToIdMap, buildIdToPathMap } from "../graph/resolver";
 
 const DEBOUNCE_MS = 2000;
 
@@ -59,11 +59,12 @@ export function startWatcher(
         if (result === "indexed") {
           const file = db.getFileByPath(absPath);
           if (file) {
-            // Build lookup once and reuse for all resolve calls
+            // Build lookups once and reuse for all resolve calls
             const pathToId = buildPathToIdMap(db);
-            resolveImportsForFile(db, file.id, directory, pathToId);
+            const idToPath = buildIdToPathMap(pathToId);
+            resolveImportsForFile(db, file.id, directory, pathToId, idToPath);
             for (const importerId of db.getImportersOf(file.id)) {
-              resolveImportsForFile(db, importerId, directory, pathToId);
+              resolveImportsForFile(db, importerId, directory, pathToId, idToPath);
             }
           }
           onEvent?.(`Re-indexed: ${rel}`);

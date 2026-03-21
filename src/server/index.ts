@@ -66,6 +66,8 @@ export async function startServer() {
       watcher = startWatcher(startupDir, startupDb, startupConfig, (msg) => {
         process.stderr.write(`[local-rag] ${msg}\n`);
       });
+    }).catch((err) => {
+      log.warn(`Startup indexing failed: ${err instanceof Error ? err.message : err}`, "server");
     });
   }
 

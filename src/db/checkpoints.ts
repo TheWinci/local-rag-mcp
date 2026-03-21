@@ -29,7 +29,7 @@ export function createCheckpoint(
         summary,
         JSON.stringify(filesInvolved),
         JSON.stringify(tags),
-        new Uint8Array(embedding.buffer),
+        null,
       ]
     );
 

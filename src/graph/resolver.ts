@@ -1,5 +1,4 @@
 import { dirname, resolve, relative, basename } from "path";
-import { existsSync } from "fs";
 import { RagDB } from "../db";
 
 // Extensions to try when resolving relative imports
@@ -37,23 +36,25 @@ export function resolveImports(db: RagDB, projectDir: string): number {
 
 /**
  * Resolve imports for a single file (used by watcher after re-indexing).
- * Accepts an optional prebuilt pathToId map to avoid repeated full-table scans
+ * Accepts optional prebuilt maps to avoid repeated full-table scans
  * when resolving multiple files in sequence.
  */
 export function resolveImportsForFile(
   db: RagDB,
   fileId: number,
   projectDir: string,
-  pathToId?: Map<string, number>
+  pathToId?: Map<string, number>,
+  idToPath?: Map<number, string>
 ): void {
   if (!pathToId) {
     pathToId = buildPathToIdMap(db);
   }
+  if (!idToPath) {
+    idToPath = buildIdToPathMap(pathToId);
+  }
 
   const imports = db.getImportsForFile(fileId);
-  const filePath = pathToId.size > 0
-    ? [...pathToId.entries()].find(([, id]) => id === fileId)?.[0]
-    : undefined;
+  const filePath = idToPath.get(fileId);
   if (!filePath) return;
 
   const importerDir = dirname(filePath);
@@ -70,12 +71,20 @@ export function resolveImportsForFile(
   }
 }
 
-/** Build a path → fileId lookup from all indexed files. */
+/** Build path → fileId and fileId → path lookups from all indexed files. */
 export function buildPathToIdMap(db: RagDB): Map<string, number> {
   const allFiles = db.getAllFilePaths();
   const map = new Map<string, number>();
   for (const f of allFiles) {
     map.set(f.path, f.id);
+  }
+  return map;
+}
+
+export function buildIdToPathMap(pathToId: Map<string, number>): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const [path, id] of pathToId) {
+    map.set(id, path);
   }
   return map;
 }

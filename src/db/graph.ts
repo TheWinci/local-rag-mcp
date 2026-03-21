@@ -104,22 +104,30 @@ export function getSubgraph(db: Database, fileIds: number[], maxHops: number = 2
   nodes: { id: number; path: string; exports: { name: string; type: string }[] }[];
   edges: { fromId: number; fromPath: string; toId: number; toPath: string; source: string }[];
 } {
-  // BFS via SQL queries per hop instead of loading the full graph
+  // BFS via SQL queries per hop instead of loading the full graph.
+  // Batch frontier to stay within SQLite's 999-parameter limit (each query uses 2× frontier).
+  const BATCH_LIMIT = 499;
   const visited = new Set<number>(fileIds);
   let frontier = [...fileIds];
 
   for (let hop = 0; hop < maxHops && frontier.length > 0; hop++) {
-    const placeholders = frontier.map(() => "?").join(",");
-    const neighbors = db
-      .query<{ file_id: number; resolved_file_id: number }, number[]>(
-        `SELECT file_id, resolved_file_id FROM file_imports
-         WHERE resolved_file_id IS NOT NULL
-         AND (file_id IN (${placeholders}) OR resolved_file_id IN (${placeholders}))`
-      )
-      .all(...frontier, ...frontier);
+    const allNeighbors: { file_id: number; resolved_file_id: number }[] = [];
+
+    for (let i = 0; i < frontier.length; i += BATCH_LIMIT) {
+      const batch = frontier.slice(i, i + BATCH_LIMIT);
+      const placeholders = batch.map(() => "?").join(",");
+      const rows = db
+        .query<{ file_id: number; resolved_file_id: number }, number[]>(
+          `SELECT file_id, resolved_file_id FROM file_imports
+           WHERE resolved_file_id IS NOT NULL
+           AND (file_id IN (${placeholders}) OR resolved_file_id IN (${placeholders}))`
+        )
+        .all(...batch, ...batch);
+      allNeighbors.push(...rows);
+    }
 
     const nextFrontier: number[] = [];
-    for (const row of neighbors) {
+    for (const row of allNeighbors) {
       if (!visited.has(row.file_id)) {
         visited.add(row.file_id);
         nextFrontier.push(row.file_id);
@@ -132,21 +140,26 @@ export function getSubgraph(db: Database, fileIds: number[], maxHops: number = 2
     frontier = nextFrontier;
   }
 
-  // Load only the nodes and edges for visited file IDs
+  // Load only the nodes and edges for visited file IDs, batched for large sets
   const idList = [...visited];
-  const ph = idList.map(() => "?").join(",");
 
-  const files = db
-    .query<{ id: number; path: string }, number[]>(
-      `SELECT id, path FROM files WHERE id IN (${ph})`
-    )
-    .all(...idList);
+  function batchQuery<T>(ids: number[], buildSql: (ph: string) => string): T[] {
+    const results: T[] = [];
+    for (let i = 0; i < ids.length; i += BATCH_LIMIT) {
+      const batch = ids.slice(i, i + BATCH_LIMIT);
+      const ph = batch.map(() => "?").join(",");
+      results.push(...db.query<T, number[]>(buildSql(ph)).all(...batch));
+    }
+    return results;
+  }
 
-  const allExports = db
-    .query<{ file_id: number; name: string; type: string }, number[]>(
-      `SELECT file_id, name, type FROM file_exports WHERE file_id IN (${ph})`
-    )
-    .all(...idList);
+  const files = batchQuery<{ id: number; path: string }>(
+    idList, (ph) => `SELECT id, path FROM files WHERE id IN (${ph})`
+  );
+
+  const allExports = batchQuery<{ file_id: number; name: string; type: string }>(
+    idList, (ph) => `SELECT file_id, name, type FROM file_exports WHERE file_id IN (${ph})`
+  );
 
   const exportsByFile = new Map<number, { name: string; type: string }[]>();
   for (const exp of allExports) {
@@ -161,26 +174,35 @@ export function getSubgraph(db: Database, fileIds: number[], maxHops: number = 2
     exports: exportsByFile.get(f.id) || [],
   }));
 
-  const edges = db
-    .query<
-      { file_id: number; from_path: string; resolved_file_id: number; to_path: string; source: string },
-      number[]
-    >(
-      `SELECT fi.file_id, f1.path as from_path, fi.resolved_file_id, f2.path as to_path, fi.source
-       FROM file_imports fi
-       JOIN files f1 ON f1.id = fi.file_id
-       JOIN files f2 ON f2.id = fi.resolved_file_id
-       WHERE fi.resolved_file_id IS NOT NULL
-       AND fi.file_id IN (${ph}) AND fi.resolved_file_id IN (${ph})`
-    )
-    .all(...idList, ...idList)
-    .map((r) => ({
-      fromId: r.file_id,
-      fromPath: r.from_path,
-      toId: r.resolved_file_id,
-      toPath: r.to_path,
-      source: r.source,
-    }));
+  // Edge query needs ids twice (file_id IN + resolved_file_id IN), so use half the batch limit
+  const EDGE_BATCH = Math.floor(BATCH_LIMIT / 2);
+  const edges: { fromId: number; fromPath: string; toId: number; toPath: string; source: string }[] = [];
+  for (let i = 0; i < idList.length; i += EDGE_BATCH) {
+    const batch = idList.slice(i, i + EDGE_BATCH);
+    const ph = batch.map(() => "?").join(",");
+    const rows = db
+      .query<
+        { file_id: number; from_path: string; resolved_file_id: number; to_path: string; source: string },
+        number[]
+      >(
+        `SELECT fi.file_id, f1.path as from_path, fi.resolved_file_id, f2.path as to_path, fi.source
+         FROM file_imports fi
+         JOIN files f1 ON f1.id = fi.file_id
+         JOIN files f2 ON f2.id = fi.resolved_file_id
+         WHERE fi.resolved_file_id IS NOT NULL
+         AND fi.file_id IN (${ph}) AND fi.resolved_file_id IN (${ph})`
+      )
+      .all(...batch, ...batch);
+    for (const r of rows) {
+      edges.push({
+        fromId: r.file_id,
+        fromPath: r.from_path,
+        toId: r.resolved_file_id,
+        toPath: r.to_path,
+        source: r.source,
+      });
+    }
+  }
 
   return { nodes, edges };
 }
