@@ -59,8 +59,7 @@ alwaysApply: true
 
 ${INSTRUCTIONS_BLOCK}`;
 
-const MARKDOWN_BLOCK = `${MARKER}
-${INSTRUCTIONS_BLOCK}`;
+const MARKDOWN_BLOCK = INSTRUCTIONS_BLOCK;
 
 export interface SetupResult {
   actions: string[];
@@ -91,7 +90,7 @@ export async function ensureGitignore(projectDir: string): Promise<string | null
 async function injectMarkdown(filePath: string, block: string): Promise<string | null> {
   if (existsSync(filePath)) {
     const content = await readFile(filePath, "utf-8");
-    if (content.includes(MARKER)) return null;
+    if (content.includes(MARKER) || content.includes("## Using local-rag tools")) return null;
     await writeFile(filePath, content.trimEnd() + "\n\n" + block + "\n");
     return `Updated ${filePath}`;
   }
@@ -148,7 +147,7 @@ export function mcpConfigSnippet(projectDir: string): string {
   return JSON.stringify({
     "local-rag": {
       command: "bunx",
-      args: ["@winci/local-rag@latest"],
+      args: ["@winci/local-rag@latest", "serve"],
       env: { RAG_PROJECT_DIR: abs },
     },
   }, null, 2);
@@ -157,7 +156,7 @@ export function mcpConfigSnippet(projectDir: string): string {
 function mcpServerEntry(projectDir: string) {
   return {
     command: "bunx",
-    args: ["@winci/local-rag@latest"],
+    args: ["@winci/local-rag@latest", "serve"],
     env: { RAG_PROJECT_DIR: resolve(projectDir) },
   };
 }
